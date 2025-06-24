@@ -12,7 +12,8 @@
 #import <SpriteKit/SpriteKit.h>
 #define scale 720.0 / 1080.0
 #define offside 180.0 / 1080.0
-//@import Cocoa;
+
+#import <os/log.h>
 
 @interface snoopyView()
 
@@ -25,7 +26,7 @@
 @property (nonatomic, copy) NSArray<NSString *> *videoURLs;
 @property (nonatomic, copy) NSArray<NSColor *> *colors;
 @property (nonatomic, copy) NSArray<NSString *> *backgroundImages;
-//@property (nonatomic, strong) NSTextField *testText;
+@property (nonatomic, assign) os_log_t log;
 
 @end
 
@@ -36,19 +37,22 @@
     self = [super initWithFrame:frame isPreview:isPreview];
     if (self) {
         [self setAnimationTimeInterval:1/30.0];
-        self.colors = @[[NSColor colorWithRed:50.0/255.0 green:60.0/255.0 blue:47.0/255.0 alpha:1],
-                       [NSColor colorWithRed:5.0/255.0 green:168.0/255.0 blue:157.0/255.0 alpha:1],
-                       [NSColor colorWithRed:65.0/255.0 green:176.0/255.0 blue:246.0/255.0 alpha:1],
-                        [NSColor colorWithRed:238.0/255.0 green:95.0/255.0 blue:167.0/255.0 alpha:1],
-                        [NSColor blackColor]];
-        [self loadBackgroundImages];
-//        self.wantsLayer = YES;
-        [self setupPlayer];
-//        self.testText = [[NSTextField alloc] initWithFrame:CGRectMake(10, 10, 200, 200)];
-//        self.testText.backgroundColor = [NSColor blackColor];
-//        self.testText.textColor = [NSColor whiteColor];
-//        self.testText.stringValue = @"testtest";
-//        [self addSubview:self.testText];
+        self.log = os_log_create("com.dillon.snoopy", "screensaver");
+        BOOL preview = NO;
+        if (frame.size.width < 600 && frame.size.height < 500) {
+            preview = YES;
+        }
+        if (!preview) {
+            self.colors = @[[NSColor colorWithRed:50.0/255.0 green:60.0/255.0 blue:47.0/255.0 alpha:1],
+                           [NSColor colorWithRed:5.0/255.0 green:168.0/255.0 blue:157.0/255.0 alpha:1],
+                           [NSColor colorWithRed:65.0/255.0 green:176.0/255.0 blue:246.0/255.0 alpha:1],
+                            [NSColor colorWithRed:238.0/255.0 green:95.0/255.0 blue:167.0/255.0 alpha:1],
+                            [NSColor blackColor]];
+            self.wantsLayer = YES;
+            [self loadBackgroundImages];
+            [self setupPlayer];
+            [[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(willStop) name:@"com.apple.screensaver.willstop" object:nil];
+        }
     }
     return self;
 }
@@ -98,6 +102,7 @@
     
     SKScene *scene = [[SKScene alloc] initWithSize:self.bounds.size];
     scene.scaleMode = SKSceneScaleModeAspectFill;
+    scene.userInteractionEnabled = NO;
     self.scene = scene;
     [self.skView presentScene:self.scene];
     
@@ -140,28 +145,13 @@
     videoNode.zPosition = 3;
     [self.scene addChild:videoNode];
     
-//    NSTextField *test = [[NSTextField alloc] initWithFrame:CGRectMake(100, 100, 1000, 1000)];
-//    test.backgroundColor = [NSColor blackColor];
-//    test.textColor = [NSColor whiteColor];
-//    test.stringValue = [NSString stringWithFormat:@"%@\n%@\n%f", image, bgImage, scene.size.width];
-//    [self addSubview:test];
-    
-//    playerLayer.frame = self.bounds;
-//    [playerLayer setAutoresizingMask:kCALayerWidthSizable | kCALayerHeightSizable];
-//    playerLayer.needsDisplayOnBoundsChange = YES;
-//    playerLayer.contentsGravity = kCAGravityResizeAspect;
-//
-//    playerLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-//    playerLayer.backgroundColor = CGColorCreateSRGB(0, 0, 0, 1);
-//    self.playerLayer = playerLayer;
-//    [self.layer addSublayer: self.playerLayer];
-    
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(playerItemDidReachEnd:)
                                                  name:AVPlayerItemDidPlayToEndTimeNotification
                                                object:nil];
     
 //    [self.queuePlayer play];
+    
 }
 
 - (void)playerItemDidReachEnd:(NSNotification *)notification {
@@ -191,37 +181,38 @@
 //    self.testText.stringValue = [NSString stringWithFormat:@"%d, %d", self.index, self.queuePlayer.items.count];
 }
 
-//- (void)setFrame:(NSRect)frame {
-//    [super setFrame:frame];
-//    [self setupPlayer];
-//    self.skView.frame = self.bounds;
-//    self.scene.size = self.bounds.size;
-//    SKVideoNode *videoNode = (SKVideoNode *)[self.scene childNodeWithName:@"video"];
-//    videoNode.size = self.scene.size;
-//    videoNode.position = CGPointMake(self.scene.size.width / 2, self.scene.size.height / 2);
-//    SKSpriteNode *imageNode = (SKSpriteNode *)[self.scene childNodeWithName:@"backgroundImage"];
-//    imageNode.position = CGPointMake(self.scene.size.width / 2, self.scene.size.height / 2 - self.scene.size.height * offside);
-//    imageNode.size = CGSizeMake(1440.0 / 1080.0 / self.scene.size.height * scale, self.scene.size.height * scale);
-//    SKSpriteNode *backgroundBNode = (SKSpriteNode *)[self.scene childNodeWithName:@"backgroundBImage"];
-//    backgroundBNode.position = CGPointMake(self.scene.size.width / 2, self.scene.size.height / 2);
-//    backgroundBNode.size = self.scene.size;
-//}
-
 - (void)startAnimation
 {
     [super startAnimation];
     [self.queuePlayer play];
+    os_log(_log, "snoopy startAnimation");
 }
 
 - (void)stopAnimation
 {
     [super stopAnimation];
     [self.queuePlayer pause];
+    self.queuePlayer.rate = 0;
+    [self.queuePlayer replaceCurrentItemWithPlayerItem:nil];
+    self.queuePlayer = nil;
+    [self.playerLayer removeAllAnimations];
+    [self.playerLayer removeFromSuperlayer];
+    [self.scene removeAllChildren];
+    [self.scene removeFromParent];
+    self.scene = nil;
+    [self.skView removeFromSuperview];
+    self.skView = nil;
+    os_log(_log, "snoopy stopAnimation");
 }
 
 - (void)drawRect:(NSRect)rect
 {
     [super drawRect:rect];
+}
+
+- (void)willStop {
+    os_log(_log, "snoopy willStop call");
+    exit(0);
 }
 
 - (void)animateOneFrame
@@ -243,6 +234,7 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self.queuePlayer pause];
     self.queuePlayer = nil;
+    os_log(_log, "snoopy dealloc");
 }
 
 @end
