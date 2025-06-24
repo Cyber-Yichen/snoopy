@@ -13,6 +13,14 @@
 @刚修好数码 就是我本人😂
 
 ---
+## v0.2.1
+
+拖了好久，终于有时间搞一搞，解决了，都解决了！
+
+这个版本大家可以放心使用了，解决了 legacyScreenSaver 的内存问题。
+
+原来 macOS 屏幕保护关闭的时候不会调用 stopAnimation() 函数，非常神奇，而是响应了一个 com.apple.screensaver.willstop 通知。
+
 
 ## v0.1.1
 
