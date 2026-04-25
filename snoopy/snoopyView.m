@@ -99,9 +99,16 @@
         return NO;
     }
 
-    NSUInteger currentClipSegmentCount = [currentClip playbackURLs].count;
-    NSUInteger nextClipSegmentCount = [nextClip playbackURLs].count;
-    return currentClipSegmentCount <= 1 && nextClipSegmentCount > 1;
+    return [self clipNeedsVideoNodeReset:currentClip] || [self clipNeedsVideoNodeReset:nextClip];
+}
+
+- (BOOL)clipNeedsVideoNodeReset:(Clip *)clip {
+    NSString *clipName = clip.name ?: @"";
+
+    // AS clips are full-scene videos and are the boundaries most likely to
+    // leave stale video texture. Other transparent/transition clips stay queued
+    // to avoid visible flashes.
+    return [clipName containsString:@"_AS"];
 }
 
 - (NSInteger)nextClipIndexAfterIndex:(NSInteger)clipIndex {
@@ -190,8 +197,12 @@
     self.currentClipItems = playerItems;
 
     if (resetVideoNode || self.queuePlayer == nil || self.videoNode == nil) {
+        [self.videoNode pause];
+        [self.videoNode removeFromParent];
+        self.videoNode = nil;
         [self.queuePlayer pause];
         [self.queuePlayer removeAllItems];
+        self.queuePlayer = nil;
         self.queuePlayer = [AVQueuePlayer queuePlayerWithItems:self.currentClipItems];
         [self installVideoNodeIfNeeded];
     } else {
